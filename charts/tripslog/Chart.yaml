@@ -1,0 +1,6 @@
+apiVersion: v2
+name: tripslog
+description: A Helm chart for deploying the TripsLog Spring Boot application and its MongoDB database.
+type: application
+version: 0.0.1
+appVersion: 0.0.1

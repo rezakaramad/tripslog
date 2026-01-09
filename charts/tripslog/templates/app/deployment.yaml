@@ -1,0 +1,84 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "springboot.appname" . }}
+  labels:
+    {{- include "springboot.labels" . | nindent 4 }}
+    app.kubernetes.io/component: app
+spec:
+  replicas: {{ .Values.replicas }}
+  selector:
+    matchLabels:
+      {{- include "springboot.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "springboot.selectorLabels" . | nindent 8 }}
+    spec:
+      initContainers:
+        - name: wait-for-mongodb
+          image: "{{ .Values.mongodb.image.repository }}:{{ .Values.mongodb.image.tag }}"
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - secretRef:
+                name: {{ include "springboot.appname" . }}
+            {{- if .Values.envConfigMap }}
+            - configMapRef:
+                name: {{ include "springboot.appname" . }}
+            {{- end }}
+          command:
+            - sh
+            - -c
+            - |
+              echo "Waiting for MongoDB authentication..."
+              until mongosh \
+                --host "$MONGODB_HOST" \
+                --port "$MONGODB_PORT" \
+                -u "$MONGODB_USERNAME" \
+                -p "$MONGODB_PASSWORD" \
+                --authenticationDatabase "$MONGODB_DATABASE" \
+                --eval "db.runCommand({ ping: 1 })" >/dev/null 2>&1; do
+                echo "MongoDB not ready yet, retrying..."
+                sleep 3
+              done
+              echo "MongoDB is ready."
+      containers:
+        - name: {{ include "springboot.name" . }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.containerPort }}
+              protocol: TCP
+          envFrom:
+            - secretRef:
+                name: {{ include "springboot.appname" . }}
+            {{- if .Values.envConfigMap }}
+            - configMapRef:
+                name: {{ include "springboot.appname" . }}
+            {{- end }}
+          volumeMounts:
+            {{- if .Values.volumeMounts }}
+            {{- toYaml .Values.volumeMounts | nindent 12 }}
+            {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+        - name: app-config
+          configMap:
+            name: {{ include "springboot.appname" . }}
+        {{- if .Values.volumes }}
+        {{- toYaml .Values.volumes | nindent 8 }}
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

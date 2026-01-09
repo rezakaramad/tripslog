@@ -1,0 +1,56 @@
+plugins {
+	id 'java'
+	id 'org.springframework.boot' version '3.3.3'
+	id 'io.spring.dependency-management' version '1.1.6'
+	id 'checkstyle'
+}
+
+group = "com.github.rezakaramad"
+version = findProperty("version") ?: "0.1.0-SNAPSHOT"
+def appName = findProperty("app") ?: project.name
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(21)
+	}
+}
+
+tasks.named("jar") {
+    enabled = false
+}
+
+tasks.named("bootJar") {
+    enabled = true
+    archiveBaseName = appName
+    archiveVersion  = project.version
+}
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-data-mongodb'
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+}
+
+
+tasks.named('test') {
+	useJUnitPlatform()
+}
+
+checkstyle {
+	toolVersion = '10.17.0'
+	configFile = rootProject.file("config/checkstyle/checkstyle.xml")
+	reportsDir = file("$project.buildDir/reports/checkstyle")
+	ignoreFailures = false
+	checkstyleTest.enabled = true
+}
+
+tasks.withType(Checkstyle) {
+	reports {
+			xml.required = true
+			html.required = false
+	}
+}

@@ -1,0 +1,56 @@
+services:
+  database:
+    image: mongodb/mongodb-community-server:latest
+    container_name: mongodb
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGODB_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGODB_ROOT_PASSWORD}
+      MONGO_INITDB_DATABASE: ${MONGODB_DATABASE}
+      MONGODB_USERNAME: ${MONGODB_USERNAME}
+      MONGODB_PASSWORD: ${MONGODB_PASSWORD}
+    ports:
+      - "27017:27017"
+    volumes:
+      - db_data:/data/db
+      - ./mongodb-init.js:/docker-entrypoint-initdb.d/mongodb-init.js:ro
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+  backend:
+    image: ghcr.io/rezakaramad/tripslog-backend:latest
+    # build:
+    #   context: ./backend
+    #   dockerfile: Dockerfile
+    #   args:
+    #     JAR_FILE: build/libs/trips-backend-unspecified.jar
+    container_name: tripslog_backend
+    depends_on:
+      database:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: local
+      MONGODB_HOST: database
+      MONGODB_PORT: 27017
+      MONGODB_DATABASE: tripslog
+      MONGODB_USERNAME: tripslog_app
+      MONGODB_PASSWORD: password
+    ports:
+      - "8080:8080"
+
+  frontend:
+    image: ghcr.io/rezakaramad/tripslog-ui:latest
+    # build:
+    #   context: ./frontend
+    #   dockerfile: Dockerfile
+    container_name: tripslog_frontend
+    depends_on:
+      - backend
+    ports:
+      - "3000:8080"
+
+volumes:
+  db_data:

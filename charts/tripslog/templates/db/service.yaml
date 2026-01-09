@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "springboot.dbname" . }}
+  labels:
+    {{- include "springboot.labels" . | nindent 4 }}
+    app.kubernetes.io/component: db
+spec:
+  ports:
+    - name: mongodb
+      port: 27017
+      targetPort: 27017
+  selector:
+    app.kubernetes.io/name: {{ include "springboot.dbname" . }}
+    app.kubernetes.io/component: db
