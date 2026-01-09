@@ -42,6 +42,40 @@ spec:
                 sleep 3
               done
               echo "MongoDB is ready."
+        - name: mongo
+          image: "{{ .Values.mongodb.image.repository }}:{{ .Values.mongodb.image.tag }}"
+          envFrom:
+            - secretRef:
+                name: {{ default (include "springboot.dbname" .) .Values.mongodb.auth.existingSecret }}
+          command:
+            - sh
+            - -c
+            - |
+              mongosh {{ include "springboot.dbname" . }}:27017 \
+                -u "$MONGO_INITDB_ROOT_USERNAME" \
+                -p "$MONGO_INITDB_ROOT_PASSWORD" \
+                --authenticationDatabase admin <<'EOF'
+              const databaseName = process.env.MONGO_INITDB_DATABASE;
+              const user = process.env.MONGO_USERNAME;
+              const pwd = process.env.MONGO_PASSWORD;
+
+              if (!databaseName || !user || !pwd) {
+                throw new Error("Missing required MongoDB environment variables");
+              }
+
+              const database = db.getSiblingDB(databaseName);
+
+              if (!database.getUser(user)) {
+                database.createUser({
+                  user: user,
+                  pwd: pwd,
+                  roles: [{ role: "readWrite", db: databaseName }]
+                });
+                print("User created");
+              } else {
+                print("User already exists");
+              }
+              EOF
       containers:
         - name: {{ include "springboot.name" . }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
